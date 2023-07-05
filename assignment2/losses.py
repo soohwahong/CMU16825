@@ -19,7 +19,7 @@ def voxel_loss(voxel_src,voxel_tgt):
 	voxel_tgt_flat = voxel_tgt.view(voxel_tgt.size(0), -1)
 
 	# Create BCE Loss instance
-	criterion = nn.BCELoss()
+	criterion = nn.BCEWithLogitsLoss()
 
 	# Compute the loss
 	loss = criterion(voxel_src_flat, voxel_tgt_flat)
