@@ -51,7 +51,6 @@ def chamfer_loss(point_cloud_src,point_cloud_tgt):
 def smoothness_loss(mesh_src):
     """
     Computes the Laplacian smoothing loss for a mesh.
-    
 
     Args:
         mesh_src: A PyTorch3D Meshes object representing the source mesh.
