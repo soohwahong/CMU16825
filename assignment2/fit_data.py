@@ -10,6 +10,9 @@ from pytorch3d.structures import Meshes
 import dataset_location
 import torch
 
+from utils import get_device, get_mesh_renderer, get_points_renderer
+from visualize import visualize_mesh, visualize_voxel
+
 
 
 
@@ -59,7 +62,9 @@ def fit_mesh(mesh_src, mesh_tgt, args):
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))        
     
     mesh_src.offset_verts_(deform_vertices_src)
-
+    # visualize and save mesh to compare
+    visualize_mesh(mesh_src, 'meshsrc.png')
+    visualize_mesh(mesh_tgt, 'meshtgt.png')
     print('Done!')
 
 
