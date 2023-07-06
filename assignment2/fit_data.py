@@ -11,7 +11,7 @@ import dataset_location
 import torch
 
 from utils import get_device, get_mesh_renderer, get_points_renderer
-from visualize import visualize_mesh, visualize_voxel
+from visualize import visualize_mesh, visualize_voxel, visualize_pcd
 
 
 
@@ -88,6 +88,8 @@ def fit_pointcloud(pointclouds_src, pointclouds_tgt, args):
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
     
+    visualize_pcd(pcd_src, 'pcd_src.png')
+    visualize_pcd(pcd_tgt, 'pcd_tgt.png')
     print('Done!')
 
 
@@ -111,6 +113,8 @@ def fit_voxel(voxels_src, voxels_tgt, args):
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
     
+    visualize_voxel(voxels_src, 'voxels_src.png')
+    visualize_voxel(voxels_tgt, 'voxels_tgt.png')
     print('Done!')
 
 
@@ -135,6 +139,8 @@ def train_model(args):
 
         # fitting
         fit_voxel(voxels_src, voxels_tgt, args)
+
+        
 
 
     elif args.type == "point":
