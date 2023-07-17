@@ -15,14 +15,14 @@ def get_args_parser():
     parser.add_argument('--arch', default='resnet18', type=str)
     parser.add_argument('--lr', default=4e-4, type=str)
     parser.add_argument('--max_iter', default=10000, type=str)
-    parser.add_argument('--log_freq', default=1000, type=str)
+    parser.add_argument('--log_freq', default=500, type=str)
     parser.add_argument('--batch_size', default=2, type=str)
     parser.add_argument('--num_workers', default=0, type=str)
     parser.add_argument('--type', default='vox', choices=['vox', 'point', 'mesh'], type=str)
     parser.add_argument('--n_points', default=5000, type=int)
     parser.add_argument('--w_chamfer', default=1.0, type=float)
     parser.add_argument('--w_smooth', default=0.1, type=float)
-    parser.add_argument('--save_freq', default=10000, type=int)    
+    parser.add_argument('--save_freq', default=1000, type=int)    
     parser.add_argument('--device', default='cuda', type=str) 
     parser.add_argument('--load_feat', action='store_true') 
     parser.add_argument('--load_checkpoint', action='store_true')            
@@ -86,8 +86,9 @@ def train_model(args):
     start_time = time.time()
 
     if args.load_checkpoint:
-        checkpoint = torch.load(f'checkpoint_{args.type}.pth')
-        model.load_state_dict(checkpoint['model_state_dict'])
+        checkpoint = torch.load(f'checkpoint_{args.type}_step{step}.pth')
+        # model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False) # model name is saved as decoder
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_iter = checkpoint['step']
         print(f"Succesfully loaded iter {start_iter}")
@@ -106,13 +107,13 @@ def train_model(args):
         images_gt, ground_truth_3d = preprocess(feed_dict,args)
         read_time = time.time() - read_start_time
 
-        prediction_3d = model(images_gt, args)
+        prediction_3d = model(images_gt, args) # calls forward function - encode and decode
 
-        loss = calculate_loss(prediction_3d, ground_truth_3d, args)
+        loss = calculate_loss(prediction_3d, ground_truth_3d, args) # compute loss with gt
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()        
+        optimizer.zero_grad() 
+        loss.backward() # back prop loss 
+        optimizer.step() # update model's parameter based on computed gradients       
 
         total_time = time.time() - start_time
         iter_time = time.time() - iter_start_time
@@ -124,9 +125,10 @@ def train_model(args):
                 'step': step,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
-                }, f'checkpoint_{args.type}.pth')
+                }, f'checkpoint_{args.type}_step{step}.pth')
 
-        print("[%4d/%4d]; ttime: %.0f (%.2f, %.2f); loss: %.3f" % (step, args.max_iter, total_time, read_time, iter_time, loss_vis))
+        if (step % 50) == 0 :
+            print("[%4d/%4d]; ttime: %.0f (%.2f, %.2f); loss: %.3f" % (step, args.max_iter, total_time, read_time, iter_time, loss_vis))
 
     print('Done!')
 
