@@ -63,8 +63,8 @@ def fit_mesh(mesh_src, mesh_tgt, args):
     
     mesh_src.offset_verts_(deform_vertices_src)
     # visualize and save mesh to compare
-    visualize_mesh(mesh_src, 'meshsrc.png')
-    visualize_mesh(mesh_tgt, 'meshtgt.png')
+    visualize_mesh(mesh_src, output_path='meshsrc.gif')
+    visualize_mesh(mesh_tgt, output_path='meshtgt.gif')
     print('Done!')
 
 
@@ -88,8 +88,8 @@ def fit_pointcloud(pointclouds_src, pointclouds_tgt, args):
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
     
-    visualize_pcd(pcd_src, 'pcd_src.png')
-    visualize_pcd(pcd_tgt, 'pcd_tgt.png')
+    visualize_pcd(pointclouds_src, output_path='pcd_src.gif')
+    visualize_pcd(pointclouds_tgt, output_path='pcd_tgt.gif')
     print('Done!')
 
 
@@ -113,8 +113,8 @@ def fit_voxel(voxels_src, voxels_tgt, args):
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
     
-    visualize_voxel(voxels_src, 'voxels_src.png')
-    visualize_voxel(voxels_tgt, 'voxels_tgt.png')
+    visualize_voxel(voxels_src, output_path='voxels_src.gif')
+    visualize_voxel(voxels_tgt, output_path='voxels_tgt.gif')
     print('Done!')
 
 

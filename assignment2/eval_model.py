@@ -12,6 +12,12 @@ import mcubes
 import utils_vox
 import matplotlib.pyplot as plt 
 
+from visualize import (
+    visualize_voxel,
+    visualize_pcd,
+    visualize_mesh
+)
+
 def get_args_parser():
     parser = argparse.ArgumentParser('Singleto3D', add_help=False)
     parser.add_argument('--arch', default='resnet18', type=str)
@@ -133,7 +139,8 @@ def evaluate_model(args):
 
     if args.load_checkpoint:
         checkpoint = torch.load(f'checkpoint_{args.type}.pth')
-        model.load_state_dict(checkpoint['model_state_dict'])
+        # model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False) # model name is saved as decoder instead of encoder
         print(f"Succesfully loaded iter {start_iter}")
     
     print("Starting evaluating !")
@@ -161,6 +168,24 @@ def evaluate_model(args):
         #     # visualization block
         #     #  rend = 
         #     plt.imsave(f'vis/{step}_{args.type}.png', rend)
+
+        if (step % args.vis_freq) == 0:
+            # visualization block
+            # print(images_gt.shape)
+            # why is this alive?
+            # plt.imsave(f'vis/{step}_gt.png', images_gt.squeeze(0).cpu().detach().numpy())
+            # visualize_mesh(mesh_gt.cpu().detach(),
+            #               output_path=f'vis/{step}_gt.gif')
+
+            if args.type == 'vox' or args.type == 'implicit':
+                visualize_voxel(predictions[0, 0].cpu().detach(),
+                                output_path=f'vis/{step}_{args.type}.gif')
+            elif args.type == 'point':
+                visualize_pcd(predictions[0].cpu().detach(),
+                              output_path=f'vis/{step}_{args.type}.gif')
+            elif args.type == 'mesh':
+                visualize_mesh(predictions.cpu().detach(),
+                               output_path=f'vis/{step}_{args.type}.gif')
       
 
         total_time = time.time() - start_time
