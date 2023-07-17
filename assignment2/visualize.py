@@ -13,9 +13,9 @@ Functions to visualize result mesh, voxel, point clouds
 def visualize_mesh(mesh,
                    textures=None, 
                    output_path='meshviz.gif',
-                   distance=3.0,
+                   distance=1.0,
                    fov=60,
-                   image_size=512,
+                   image_size=256,
                    color=[0.7, 0.7, 1],
                    steps=range(360, 0, -15)):
     '''
@@ -40,8 +40,8 @@ def visualize_mesh(mesh,
         # textures = textures * torch.tensor(color)  # (1, N_v, 3)
         textures = (vertices - vertices.min()) / \
                    (vertices.max() - vertices.min())
-    elif len(textures.shape) < 3:
-        textures = textures.unsqueeze(0)
+    # elif len(textures.shape) < 3:
+    #     textures = textures.unsqueeze(0)
 
     render_mesh = pytorch3d.structures.Meshes(
     verts=vertices,
@@ -68,7 +68,8 @@ def visualize_mesh(mesh,
         image = (rend*255).detach().cpu().numpy().astype(np.uint8).squeeze(0)
         images.append(image)
 
-    imageio.mimsave(output_path, images, fps=15)
+    # imageio.mimsave(output_path, images, fps=15) # The keyword `fps` is no longer supported. Use `duration`(in ms) instead, e.g. `fps=50` == `duration=20` (1000 * 1/50).
+    imageio.mimsave(output_path, images, duration=40)
 
     # for exporting png
     # plt.figure(figsize=(10, 10))
@@ -82,7 +83,7 @@ def visualize_voxel(voxels,
                    output_path='voxelviz.gif',
                    distance=3.0,
                    fov=60,
-                   image_size=512,
+                   image_size=256,
                    color=[0.7, 0.7, 1],
                    steps=range(360, 0, -15)):
     '''
@@ -104,15 +105,15 @@ def visualize_voxel(voxels,
                    fov=fov,
                    image_size=image_size,
                    color=color,
-                   steps=range(steps))
+                   steps=steps)
     return
 
 def visualize_pcd(point_cloud_src,
-                rgb,
+                rgb=None,
                 output_path='pcdviz.gif',
-                distance=10.0,
+                distance=1.0,
                 fov=60,
-                image_size=512,
+                image_size=256,
                 background_color=[1., 1, 1],
                 steps=range(360, 0, -15)):
     '''
@@ -126,7 +127,8 @@ def visualize_pcd(point_cloud_src,
     '''
     device = get_device()
     points = point_cloud_src[0]
-    rgb = (points - points.min()) / (points.max() - points.min())
+    if rgb==None:
+      rgb = (points - points.min()) / (points.max() - points.min())
 
     render_point_cloud = pytorch3d.structures.Pointclouds(
       points=[points], features=[rgb],
@@ -141,13 +143,14 @@ def visualize_pcd(point_cloud_src,
     images = []
     for i in tqdm(steps):
         R, T = pytorch3d.renderer.cameras.look_at_view_transform(dist=distance,
-                                                                elev=0.5, 
-                                                                azim=90, 
+                                                                # elev=0.5, 
+                                                                azim=i, 
                                                                 at=((0, 0, 0), ))
         cameras = pytorch3d.renderer.FoVPerspectiveCameras(T=T,  R=R, device=device)
         rend = renderer(render_point_cloud, cameras=cameras)
 
-        image = (rend*255).detach().cpu().numpy().astype(np.uint8).reshape((256,256,3))
+        # image = (rend*255).detach().cpu().numpy().astype(np.uint8).reshape((256,256,3))
+        image = (rend.detach().cpu().numpy()[0, ..., :3] * 255).astype(np.uint8)
         images.append(image)
     
     imageio.mimsave(output_path, images, fps=15)
