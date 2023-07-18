@@ -86,7 +86,7 @@ def train_model(args):
     start_time = time.time()
 
     if args.load_checkpoint:
-        checkpoint = torch.load(f'checkpoint_{args.type}_step{step}.pth')
+        checkpoint = torch.load(f'checkpoint_{args.type}.pth')
         # model.load_state_dict(checkpoint['model_state_dict'])
         model.load_state_dict(checkpoint['model_state_dict'], strict=False) # model name is saved as decoder
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -121,11 +121,16 @@ def train_model(args):
         loss_vis = loss.cpu().item()
 
         if (step % args.save_freq) == 0:
+            # torch.save({
+            #     'step': step,
+            #     'model_state_dict': model.state_dict(),
+            #     'optimizer_state_dict': optimizer.state_dict()
+            #     }, f'checkpoint_{args.type}_step{step}.pth')
             torch.save({
                 'step': step,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
-                }, f'checkpoint_{args.type}_step{step}.pth')
+                }, f'checkpoint_{args.type}.pth')
 
         if (step % 50) == 0 :
             print("[%4d/%4d]; ttime: %.0f (%.2f, %.2f); loss: %.3f" % (step, args.max_iter, total_time, read_time, iter_time, loss_vis))

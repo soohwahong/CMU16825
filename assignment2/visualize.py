@@ -5,6 +5,7 @@ import torch
 from utils import get_device, get_mesh_renderer, get_points_renderer
 from tqdm.auto import tqdm
 import imageio
+# from PIL import Image, ImageDraw
 
 """
 Functions to visualize result mesh, voxel, point clouds
@@ -69,7 +70,11 @@ def visualize_mesh(mesh,
         images.append(image)
 
     # imageio.mimsave(output_path, images, fps=15) # The keyword `fps` is no longer supported. Use `duration`(in ms) instead, e.g. `fps=50` == `duration=20` (1000 * 1/50).
-    imageio.mimsave(output_path, images, duration=40)
+    imageio.mimsave(output_path, images, duration=0.3, format='gif', disposal=2, loop=0)
+
+    # Using PIL to make gif
+    # imgs = [Image.fromarray(img) for img in images]
+    # imgs[0].save(output_path, save_all=True, append_images(imgs[1:], duration=500), loop=0)
 
     # for exporting png
     # plt.figure(figsize=(10, 10))
@@ -126,7 +131,8 @@ def visualize_pcd(point_cloud_src,
         saves gif 
     '''
     device = get_device()
-    points = point_cloud_src[0]
+    # points = point_cloud_src[0] # output 
+    points = point_cloud_src
     if rgb==None:
       rgb = (points - points.min()) / (points.max() - points.min())
 
@@ -153,7 +159,8 @@ def visualize_pcd(point_cloud_src,
         image = (rend.detach().cpu().numpy()[0, ..., :3] * 255).astype(np.uint8)
         images.append(image)
     
-    imageio.mimsave(output_path, images, fps=15)
+    # imageio.mimsave(output_path, images, fps=15) # fps depreciated, disposal discards previous frames
+    imageio.mimsave(output_path, images, duration=0.3, format='gif', disposal=2, loop=0)
 
     # To save as png
     # plt.figure(figsize=(10, 10))
