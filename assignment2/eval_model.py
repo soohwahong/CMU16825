@@ -12,6 +12,8 @@ import mcubes
 import utils_vox
 import matplotlib.pyplot as plt 
 
+import numpy as np
+
 from visualize import (
     visualize_voxel,
     visualize_pcd,
@@ -22,7 +24,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Singleto3D', add_help=False)
     parser.add_argument('--arch', default='resnet18', type=str)
     parser.add_argument('--max_iter', default=10000, type=str)
-    parser.add_argument('--vis_freq', default=1000, type=str)
+    parser.add_argument('--vis_freq', default=100, type=str)
     parser.add_argument('--batch_size', default=1, type=str)
     parser.add_argument('--num_workers', default=0, type=str)
     parser.add_argument('--type', default='vox', choices=['vox', 'point', 'mesh'], type=str)
@@ -97,7 +99,8 @@ def evaluate(predictions, mesh_gt, thresholds, args):
         vertices_src = torch.tensor(vertices_src).float()
         faces_src = torch.tensor(faces_src.astype(int))
         mesh_src = pytorch3d.structures.Meshes([vertices_src], [faces_src])
-        pred_points = sample_points_from_meshes(mesh_src, args.n_points)
+        
+        pred_points = sample_points_from_meshes(mesh_src, args.n_points) 
         pred_points = utils_vox.Mem2Ref(pred_points, H, W, D)
     elif args.type == "point":
         pred_points = predictions.cpu()
@@ -146,59 +149,82 @@ def evaluate_model(args):
     print("Starting evaluating !")
     max_iter = len(eval_loader)
     for step in range(start_iter, max_iter):
-        iter_start_time = time.time()
+        # to avoid ValueError("Meshes are empty.")
+        try:
+            iter_start_time = time.time()
 
-        read_start_time = time.time()
+            read_start_time = time.time()
 
-        feed_dict = next(eval_loader)
+            feed_dict = next(eval_loader)
 
-        images_gt, mesh_gt = preprocess(feed_dict, args)
+            images_gt, mesh_gt = preprocess(feed_dict, args)
 
-        read_time = time.time() - read_start_time
+            read_time = time.time() - read_start_time
 
-        predictions = model(images_gt, args)
+            predictions = model(images_gt, args)
 
-        if args.type == "vox":
-            predictions = predictions.permute(0,1,4,3,2)
+            if args.type == "vox":
+                predictions = predictions.permute(0,1,4,3,2)
+                # print(predictions)
 
-        metrics = evaluate(predictions, mesh_gt, thresholds, args)
+            metrics = evaluate(predictions, mesh_gt, thresholds, args)
 
-        # TODO:
-        # if (step % args.vis_freq) == 0:
-        #     # visualization block
-        #     #  rend = 
-        #     plt.imsave(f'vis/{step}_{args.type}.png', rend)
+            # TODO:
+            if (step % args.vis_freq) == 0:
+                # visualization block
+                # print(images_gt.shape)
+                # why is this alive?
+                # plt.imsave(f'vis/{step}_gt.png', images_gt.squeeze(0).cpu().detach().numpy())
+                # visualize_mesh(mesh_gt.cpu().detach(),
+                #               output_path=f'vis/{step}_gt.gif')
+                
+                images_gt = images_gt.cpu().numpy().squeeze(0)
 
-        if (step % args.vis_freq) == 0:
-            # visualization block
-            # print(images_gt.shape)
-            # why is this alive?
-            # plt.imsave(f'vis/{step}_gt.png', images_gt.squeeze(0).cpu().detach().numpy())
-            # visualize_mesh(mesh_gt.cpu().detach(),
-            #               output_path=f'vis/{step}_gt.gif')
+                if args.type == 'vox' or args.type == 'implicit':
+                    # visualize prediction
+                    visualize_voxel(predictions[0].cpu().detach(),
+                                    output_path=f'vis/{step}_{args.type}.gif')
+                    # visualize gt voxel
+                    # visualize_voxel(mesh_gt.cpu().detach(),
+                    #                 output_path=f'vis/gt_vox_{step}.gif')
+                    # save original image
+                    plt.imsave(f'vis/gt_img_{step}.png', images_gt)
 
-            if args.type == 'vox' or args.type == 'implicit':
-                visualize_voxel(predictions[0, 0].cpu().detach(),
+                elif args.type == 'point':
+                    visualize_pcd(predictions[0].cpu().detach(),
                                 output_path=f'vis/{step}_{args.type}.gif')
-            elif args.type == 'point':
-                visualize_pcd(predictions[0].cpu().detach(),
-                              output_path=f'vis/{step}_{args.type}.gif')
-            elif args.type == 'mesh':
-                visualize_mesh(predictions.cpu().detach(),
-                               output_path=f'vis/{step}_{args.type}.gif')
-      
+                    # visualize gt voxel
+                    visualize_pcd(mesh_gt.cpu().detach(),
+                                    output_path=f'vis/gt_pcd_{step}.gif')
+                    # save original image
+                    plt.imsave(f'vis/gt_img_{step}.png', images_gt)
+                
+                elif args.type == 'mesh':
+                    # visualize prediction
+                    visualize_mesh(predictions.cpu().detach(),
+                                output_path=f'vis/{step}_{args.type}.gif')
+                    # visualize gt mesh
+                    visualize_mesh(mesh_gt.cpu().detach(),
+                                    output_path=f'vis/gt_mesh_{step}.gif')
+                    # save original image
+                    # images_gt = images_gt.detach().cpu().numpy().astype(np.uint8).squeeze(1) # added to move to cuda
+                    print(images_gt)
+                    # images_gt = images_gt.detach().cpu().numpy().astype(np.uint8) # added to move to cuda
+                    plt.imsave(f'vis/gt_img_{step}.png', images_gt)
+        
 
-        total_time = time.time() - start_time
-        iter_time = time.time() - iter_start_time
+            total_time = time.time() - start_time
+            iter_time = time.time() - iter_start_time
 
-        f1_05 = metrics['F1@0.050000']
-        avg_f1_score_05.append(f1_05)
-        avg_p_score.append(torch.tensor([metrics["Precision@%f" % t] for t in thresholds]))
-        avg_r_score.append(torch.tensor([metrics["Recall@%f" % t] for t in thresholds]))
-        avg_f1_score.append(torch.tensor([metrics["F1@%f" % t] for t in thresholds]))
+            f1_05 = metrics['F1@0.050000']
+            avg_f1_score_05.append(f1_05)
+            avg_p_score.append(torch.tensor([metrics["Precision@%f" % t] for t in thresholds]))
+            avg_r_score.append(torch.tensor([metrics["Recall@%f" % t] for t in thresholds]))
+            avg_f1_score.append(torch.tensor([metrics["F1@%f" % t] for t in thresholds]))
 
-        print("[%4d/%4d]; ttime: %.0f (%.2f, %.2f); F1@0.05: %.3f; Avg F1@0.05: %.3f" % (step, max_iter, total_time, read_time, iter_time, f1_05, torch.tensor(avg_f1_score_05).mean()))
-    
+            print("[%4d/%4d]; ttime: %.0f (%.2f, %.2f); F1@0.05: %.3f; Avg F1@0.05: %.3f" % (step, max_iter, total_time, read_time, iter_time, f1_05, torch.tensor(avg_f1_score_05).mean()))
+        except ValueError:
+            pass
 
     avg_f1_score = torch.stack(avg_f1_score).mean(0)
 

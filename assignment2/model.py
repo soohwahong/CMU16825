@@ -13,7 +13,7 @@ class ReshapeLayer(nn.Module):
         self.shape = shape
 
     def forward(self, x):
-        return x.view(*self.shape)
+        return x.reshape(self.shape)
 
 class SingleViewto3D(nn.Module):
     def __init__(self, args):
@@ -39,24 +39,46 @@ class SingleViewto3D(nn.Module):
             #     nn.Sigmoid()  # Apply sigmoid activation to ensure voxel values between 0 and 1
             # )
 
-            self.decoder = nn.Sequential(
-                nn.Linear(512, 2048),
-                ReshapeLayer(-1, 256, 2, 2, 2)
-                nn.ConvTranspose3d(256, 128, kernel_size=4, stride=2, bias=False, padding=1),
-                nn.BatchNorm3d(128)
-                nn.ReLU(),
-                nn.ConvTranspose3d(128, 64, kernel_size=4, stride=2, bias=False, padding=1),
-                nn.BatchNorm3d(64)
-                nn.ReLU(),
-                nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, bias=False, padding=1),
-                nn.BatchNorm3d(32)
-                nn.ReLU(),
-                nn.ConvTranspose3d(32, 8, kernel_size=4, stride=2, bias=False, padding=1),
-                nn.BatchNorm3d(8)
-                nn.ReLU(),
-                nn.ConvTranspose3d(8, 1, kernel_size=1, bias=False),
-                nn.Sigmoid()
-            )   
+            # self.decoder = nn.Sequential(
+            #     nn.Linear(512, 2048),
+            #     ReshapeLayer((-1, 256, 2, 2, 2)),
+            #     nn.ConvTranspose3d(256, 128, kernel_size=4, stride=2, bias=False, padding=1),
+            #     nn.BatchNorm3d(128),
+            #     nn.ReLU(),
+            #     nn.ConvTranspose3d(128, 64, kernel_size=4, stride=2, bias=False, padding=1),
+            #     nn.BatchNorm3d(64),
+            #     nn.ReLU(),
+            #     nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, bias=False, padding=1),
+            #     nn.BatchNorm3d(32),
+            #     nn.ReLU(),
+            #     nn.ConvTranspose3d(32, 8, kernel_size=4, stride=2, bias=False, padding=1),
+            #     nn.BatchNorm3d(8),
+            #     nn.ReLU(),
+            #     nn.ConvTranspose3d(8, 1, kernel_size=1, bias=False),
+            #     nn.Sigmoid()
+            # )   
+
+            # a -
+            in_channels = 64
+            channels = [32, 16, 8]
+            modules = []
+            for mid_channels in channels:
+                modules += [
+                    nn.ConvTranspose3d(in_channels=in_channels, out_channels=mid_channels, 
+                                       kernel_size=4, stride=2, padding=1),
+                    nn.BatchNorm3d(mid_channels),
+                    nn.ReLU()
+                ]
+                in_channels = mid_channels
+
+            # output layer
+            out_channels = 1
+            modules += [
+                nn.ConvTranspose3d(in_channels=in_channels, out_channels=out_channels,
+                                   kernel_size=4, stride=2, padding=1),
+                nn.BatchNorm3d(out_channels),
+            ]
+            self.decoder = torch.nn.Sequential(*modules)
 
         elif args.type == "point":
             # Input: b x 512
@@ -67,7 +89,7 @@ class SingleViewto3D(nn.Module):
                 nn.Linear(512, self.n_point),
                 nn.LeakyReLU(),
                 nn.Linear(self.n_point, self.n_point*3),
-                ReshapeLayer(-1, args.n_points, 3),
+                ReshapeLayer((-1, args.n_points, 3)),
                 nn.Tanh()
             )
                      
@@ -79,7 +101,7 @@ class SingleViewto3D(nn.Module):
             self.mesh_pred = pytorch3d.structures.Meshes(mesh_pred.verts_list()*args.batch_size, mesh_pred.faces_list()*args.batch_size)
             # TODO:
             self.decoder = nn.Sequential(
-                nn.linear(512, 3*mesh_pred.verts_packed().shape[0]),
+                nn.Linear(512, 3*mesh_pred.verts_packed().shape[0]),
                 nn.Tanh()
             )              
 
@@ -98,14 +120,17 @@ class SingleViewto3D(nn.Module):
             encoded_feat = images # in case of args.load_feat input images are pretrained resnet18 features of b x 512 size
 
         # call decoder
+        ## check output size before moving forward!!
         if args.type == "vox":
             # TODO:
-            voxels_pred = self.decoder(encoded_feat)            
+            # voxels_pred = self.decoder(encoded_feat)   
+            # a - 
+            voxels_pred = self.decoder(encoded_feat.reshape((encoded_feat.shape[0], 64, 2, 2, 2)))         
             return voxels_pred
 
         elif args.type == "point":
             # TODO:
-            pointclouds_pred =  self.decoder(encoded_feat)           
+            pointclouds_pred =  self.decoder(encoded_feat)   # 2, 5000, 3
             return pointclouds_pred
 
         elif args.type == "mesh":
