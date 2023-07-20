@@ -83,21 +83,21 @@ class SingleViewto3D(nn.Module):
             # )
 
             self.decoder = nn.Sequential(
-                nn.Linear(512, 2048),
-                ReshapeLayer((-1, 256, 2, 2, 2)),
-                nn.ConvTranspose3d(256, 128, kernel_size=4, stride=2, bias=False, padding=1),
+                nn.Linear(512, 2048), # b x 512 -> # b x 2048
+                ReshapeLayer((-1, 256, 2, 2, 2)), # b x 2048 -> b x 256 x 2 x 2 x 2
+                nn.ConvTranspose3d(256, 128, kernel_size=4, stride=2, bias=False, padding=1), # b x 256 x 2 x 2 x 2 -> b x 128 x 2 x 2 x 2
                 nn.BatchNorm3d(128),
                 nn.ReLU(),
-                nn.ConvTranspose3d(128, 64, kernel_size=4, stride=2, bias=False, padding=1),
+                nn.ConvTranspose3d(128, 64, kernel_size=4, stride=2, bias=False, padding=1), # b x 128 x 2 x 2 x 2 -> b x 64 x 2 x 2 x 2
                 nn.BatchNorm3d(64),
                 nn.ReLU(),
-                nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, bias=False, padding=1),
+                nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, bias=False, padding=1), # b x 64 x 2 x 2 x 2 -> b x 32 x 2 x 2 x 2
                 nn.BatchNorm3d(32),
                 nn.ReLU(),
-                nn.ConvTranspose3d(32, 8, kernel_size=4, stride=2, bias=False, padding=1),
+                nn.ConvTranspose3d(32, 8, kernel_size=4, stride=2, bias=False, padding=1), # b x 32 x 2 x 2 x 2 -> b x 8 x 2 x 2 x 2
                 nn.BatchNorm3d(8),
                 nn.ReLU(),
-                nn.ConvTranspose3d(8, 1, kernel_size=1, bias=False),
+                nn.ConvTranspose3d(8, 1, kernel_size=1, bias=False), # b x 8 x 2 x 2 x 2 -> b x 1 x 2 x 2 x 2
                 nn.Sigmoid()
             )   
 
@@ -156,7 +156,6 @@ class SingleViewto3D(nn.Module):
             # You will need to create a meshgrid of 32x32x32 in the normalized coordinate space of (-1,1)^3 to predict the full occupancy output.
             # It does not perform any form of normalization.
             
-
             self.decoder =  nn.Sequential(
                 ResnetBlockFC(128, 128, size_h=None),
                 ResnetBlockFC(128, 128, size_h=None),
@@ -183,12 +182,13 @@ class SingleViewto3D(nn.Module):
             images_normalize = self.normalize(images.permute(0,3,1,2)) # rearranges the dimensions to match the expected format (batch_size, channels, height, width)
             encoded_feat = self.encoder(images_normalize).squeeze(-1).squeeze(-1) # b x 512
         else:
-            encoded_feat = images # in case of args.load_feat input images are pretrained resnet18 features of b x 512 size
+            encoded_feat = images # in case of args.load_feat input images are pretrained resnet18 features of b x 512 size # 2, 512
 
         # call decoder
         ## check output size before moving forward!!
         if args.type == "vox":
-            voxels_pred = self.decoder(encoded_feat)   
+            voxels_pred = self.decoder(encoded_feat)   # b x 1 x 2 x 2 x 2
+            print(f'voxel pred : {voxels_pred.shape}')
             # a - 
             # voxels_pred = self.decoder(encoded_feat.reshape((encoded_feat.shape[0], 64, 2, 2, 2)))         
             return voxels_pred
@@ -203,19 +203,31 @@ class SingleViewto3D(nn.Module):
             return  mesh_pred          
         
         elif args.type == 'implicit':
+            # Input : b x (512 + num_coords x 3)
+            # Output : b x num_coords x 1
+
             # p : sampled points  (b x num_coords x 3)
             # c : conditioning input (2D image) (b x 512)
             # z : latent code? 
 
-            self.n_coords = args.n_coords
+            self.n_coords = args.n_coords # default=2048
             self.fc_p = nn.Linear(3*self.n_coords, 128)
             self.fc_c = nn.Linear(512, 128)
 
-            net = self.fc_p(p)
-            net_c = self.fc_c(encoded_feat).unsqueeze(1)
+            # initialize sample points in the range -1, 1
+            self.sample_p = 2 * torch.rand((B, self.num_coords * 3)) - 1
 
+            net = self.fc_p(self.sample_p)
+            net_c = self.fc_c(encoded_feat).unsqueeze(1)
             net = net + net_c
 
             implicit_pred = self.decoder(net).squeeze(-1)
+
+            # # initialize 3D coordinates with meshgrid of 32x32x32 in normalized coordinate space of (-1,1)^3
+            # x = torch.linspace(-1, 1, 32)
+            # y = torch.linspace(-1, 1, 32)
+            # z = torch.linspace(-1, 1, 32)
+            # grid_coords = torch.stack(torch.meshgrid(x, y, z), dim=-1).view(1, -1, 3) # (1, 32*32*32, 3)
+            # self.occ = grid_coords
 
             return implicit_pred
