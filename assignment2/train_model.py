@@ -25,7 +25,8 @@ def get_args_parser():
     parser.add_argument('--save_freq', default=1000, type=int)    
     parser.add_argument('--device', default='cuda', type=str) 
     parser.add_argument('--load_feat', action='store_true') 
-    parser.add_argument('--load_checkpoint', action='store_true')            
+    parser.add_argument('--load_checkpoint', action='store_true') 
+    parser.add_argument('--n_coords', default = 2048, type=int) # for implicit model 
     return parser
 
 def preprocess(feed_dict,args):
